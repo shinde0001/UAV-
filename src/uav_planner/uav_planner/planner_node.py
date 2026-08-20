@@ -78,14 +78,20 @@ class ReactivePlanner(Node):
                 
                 if len(threats) > 0:
                     self.get_logger().warn(f"Obstacle ahead! Dodging...")
-                    # Dodge perpendicular to direction in XY plane
-                    perp = np.array([-direction[1], direction[0], 0.0])
-                    if np.linalg.norm(perp) < 0.1:
-                        perp = np.array([1.0, 0.0, 0.0])
+                    # Compare left vs right side to dodge into open space
+                    left_perp = np.array([-direction[1], direction[0], 0.0])
+                    if np.linalg.norm(left_perp) < 0.1:
+                        left_perp = np.array([0.0, 1.0, 0.0])
                     else:
-                        perp = perp / np.linalg.norm(perp)
+                        left_perp = left_perp / np.linalg.norm(left_perp)
                     
-                    dodge_vector = perp * 6.0 # Dodge 6m sideways
+                    right_perp = -left_perp
+                    
+                    left_threats = np.sum(np.dot(threats, left_perp) > 0)
+                    right_threats = np.sum(np.dot(threats, right_perp) > 0)
+                    
+                    chosen_perp = left_perp if left_threats <= right_threats else right_perp
+                    dodge_vector = chosen_perp * 4.0
         
         # Target point is 5m ahead plus dodge
         target_vec = direction * 5.0 + dodge_vector
