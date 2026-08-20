@@ -2,7 +2,7 @@
 import rclpy
 from rclpy.node import Node
 import numpy as np
-from nav_msgs.msg import Odometry, Path
+from nav_msgs.msg import Path
 from sensor_msgs.msg import PointCloud2
 from geometry_msgs.msg import PoseStamped
 import sensor_msgs_py.point_cloud2 as pc2
@@ -26,13 +26,19 @@ class ReactivePlanner(Node):
         self.timer = self.create_timer(0.2, self.plan_loop) # 5 Hz
         
         self.current_pos = None
+        self.current_yaw = 0.0
         self.goal_pos = None
-        self.obstacles = []
+        self.obstacles = np.array([])
         
         self.get_logger().info("Reactive Planner Started.")
         
     def odom_cb(self, msg):
         self.current_pos = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z])
+        # Extract yaw from quaternion
+        q = msg.pose.orientation
+        siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
+        cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+        self.current_yaw = np.arctan2(siny_cosp, cosy_cosp)
         
     def goal_cb(self, msg):
         self.goal_pos = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z])
@@ -49,66 +55,61 @@ class ReactivePlanner(Node):
             return
             
         direction = self.goal_pos - self.current_pos
-        dist_to_goal = np.linalg.norm(direction)
+        dist_to_goal = np.linalg.norm(direction[:2]) # 2D horizontal distance to goal
+        
         if dist_to_goal < 1.0:
             cmd = PoseStamped()
             cmd.header.frame_id = "odom"
-            cmd.pose.position.x = self.goal_pos[0]
-            cmd.pose.position.y = self.goal_pos[1]
-            cmd.pose.position.z = self.goal_pos[2]
+            cmd.header.stamp = self.get_clock().now().to_msg()
+            cmd.pose.position.x = float(self.goal_pos[0])
+            cmd.pose.position.y = float(self.goal_pos[1])
+            cmd.pose.position.z = float(self.goal_pos[2])
             self.pub_cmd.publish(cmd)
             return
             
-        direction = direction / dist_to_goal
+        # Direction unit vector towards goal in 2D (horizontal)
+        dir_norm = np.linalg.norm(direction[:2])
+        dir_2d = direction[:2] / (dir_norm if dir_norm > 1e-4 else 1.0)
         
-        dodge_vector = np.zeros(3)
+        dodge_body = np.zeros(2) # 2D dodge in body frame (forward, left)
+        
         if len(self.obstacles) > 0:
-            rel_obs = self.obstacles # PointCloud is already in sensor frame (relative to drone)
-            dists = np.linalg.norm(rel_obs, axis=1)
+            # Obstacles are in Body Frame: X = forward, Y = left, Z = up
+            rel_obs = self.obstacles
             
-            # Find obstacles within 15m
-            close_mask = dists < 15.0
-            close_obs = rel_obs[close_mask]
+            # Find obstacles directly in front of UAV (0.5m < X < 8.0m, |Y| < 2.5m, |Z| < 2.0m)
+            threat_mask = (rel_obs[:, 0] > 0.5) & (rel_obs[:, 0] < 8.0) & (np.abs(rel_obs[:, 1]) < 2.5) & (np.abs(rel_obs[:, 2]) < 2.0)
+            threats = rel_obs[threat_mask]
             
-            if len(close_obs) > 0:
-                close_dists = dists[close_mask]
-                dirs = close_obs / close_dists[:, np.newaxis]
-                dots = np.dot(dirs, direction)
+            if len(threats) > 0:
+                self.get_logger().warn("Obstacle directly ahead! Dodging...")
+                # Count obstacles on left (+Y) vs right (-Y)
+                left_count = np.sum(threats[:, 1] > 0)
+                right_count = np.sum(threats[:, 1] <= 0)
                 
-                # If obstacle is directly in front (dot > 0.8) and close (< 10m)
-                threat_mask = (dots > 0.8) & (close_dists < 10.0)
-                threats = close_obs[threat_mask]
-                
-                if len(threats) > 0:
-                    self.get_logger().warn(f"Obstacle ahead! Dodging...")
-                    # Compare left vs right side to dodge into open space
-                    left_perp = np.array([-direction[1], direction[0], 0.0])
-                    if np.linalg.norm(left_perp) < 0.1:
-                        left_perp = np.array([0.0, 1.0, 0.0])
-                    else:
-                        left_perp = left_perp / np.linalg.norm(left_perp)
-                    
-                    right_perp = -left_perp
-                    
-                    left_threats = np.sum(np.dot(threats, left_perp) > 0)
-                    right_threats = np.sum(np.dot(threats, right_perp) > 0)
-                    
-                    chosen_perp = left_perp if left_threats <= right_threats else right_perp
-                    dodge_vector = chosen_perp * 4.0
+                # Dodge to the side with fewer obstacles (3.5 meters sideways offset)
+                if left_count <= right_count:
+                    dodge_body = np.array([0.0, 3.5]) # Dodge Left (+Y body)
+                else:
+                    dodge_body = np.array([0.0, -3.5]) # Dodge Right (-Y body)
         
-        # Target point is 5m ahead plus dodge
-        target_vec = direction * 5.0 + dodge_vector
-        target_pos = self.current_pos + target_vec
+        # Transform Body Frame dodge offset to World Frame (using UAV current yaw)
+        cos_y = np.cos(self.current_yaw)
+        sin_y = np.sin(self.current_yaw)
+        dodge_world_x = dodge_body[0] * cos_y - dodge_body[1] * sin_y
+        dodge_world_y = dodge_body[0] * sin_y + dodge_body[1] * cos_y
+        dodge_world = np.array([dodge_world_x, dodge_world_y])
         
-        if np.linalg.norm(dodge_vector) < 0.1 and dist_to_goal < 5.0:
-            target_pos = self.goal_pos
-            
+        # Compute forward step (4.0m towards goal + dodge offset)
+        step_len = min(4.0, dist_to_goal)
+        target_world_xy = self.current_pos[:2] + dir_2d * step_len + dodge_world
+        
         cmd = PoseStamped()
         cmd.header.frame_id = "odom"
         cmd.header.stamp = self.get_clock().now().to_msg()
-        cmd.pose.position.x = float(target_pos[0])
-        cmd.pose.position.y = float(target_pos[1])
-        cmd.pose.position.z = float(target_pos[2])
+        cmd.pose.position.x = float(target_world_xy[0])
+        cmd.pose.position.y = float(target_world_xy[1])
+        cmd.pose.position.z = float(self.goal_pos[2]) # Maintain goal altitude (10m)
         self.pub_cmd.publish(cmd)
         
         # Publish path
