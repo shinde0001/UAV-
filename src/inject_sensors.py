@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+import os
+
+sdf_path = "/home/parth/gr/src/PX4-Autopilot/Tools/simulation/gazebo-classic/sitl_gazebo-classic/models/iris/iris.sdf"
+
+if not os.path.exists(sdf_path):
+    print("SDF not found yet!")
+    exit(1)
+
+with open(sdf_path, "r") as f:
+    content = f.read()
+
+# Check if already injected
+if "lidar_sensor" in content:
+    print("Sensors already injected.")
+    exit(0)
+
+injection = """
+    <!-- Attach 3D LiDAR (16 beams) -->
+    <link name="lidar_link">
+      <pose>0 0 0.1 0 0.2618 0</pose>
+      <inertial>
+        <mass>0.1</mass>
+        <inertia>
+          <ixx>0.0001</ixx><ixy>0</ixy><ixz>0</ixz>
+          <iyy>0.0001</iyy><iyz>0</iyz>
+          <izz>0.0001</izz>
+        </inertia>
+      </inertial>
+      <sensor name="lidar_sensor" type="ray">
+        <always_on>true</always_on>
+        <visualize>false</visualize>
+        <update_rate>10</update_rate>
+        <ray>
+          <scan>
+            <horizontal>
+              <samples>900</samples>
+              <resolution>1</resolution>
+              <min_angle>-3.14159</min_angle>
+              <max_angle>3.14159</max_angle>
+            </horizontal>
+            <vertical>
+              <samples>16</samples>
+              <resolution>1</resolution>
+              <min_angle>-0.261799</min_angle>
+              <max_angle>0.261799</max_angle>
+            </vertical>
+          </scan>
+          <range>
+            <min>0.3</min>
+            <max>100.0</max>
+            <resolution>0.01</resolution>
+          </range>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.01</stddev>
+          </noise>
+        </ray>
+        <plugin name="gazebo_ros_lidar" filename="libgazebo_ros_ray_sensor.so">
+          <ros>
+            <namespace>/uav</namespace>
+            <remapping>~/out:=/velodyne_points</remapping>
+          </ros>
+          <output_type>sensor_msgs/PointCloud2</output_type>
+          <frame_name>lidar_link</frame_name>
+        </plugin>
+      </sensor>
+    </link>
+    <joint name="lidar_joint" type="fixed">
+      <child>lidar_link</child>
+      <parent>base_link</parent>
+    </joint>
+
+    <!-- Attach IMU -->
+    <link name="imu_link">
+      <pose>0 0 0 0 0 0</pose>
+      <inertial>
+        <mass>0.01</mass>
+        <inertia>
+          <ixx>0.00001</ixx><ixy>0</ixy><ixz>0</ixz>
+          <iyy>0.00001</iyy><iyz>0</iyz>
+          <izz>0.00001</izz>
+        </inertia>
+      </inertial>
+      <sensor name="imu_sensor" type="imu">
+        <always_on>true</always_on>
+        <update_rate>200</update_rate>
+        <imu>
+          <angular_velocity>
+            <x><noise type="gaussian"><mean>0.0</mean><stddev>0.01</stddev></noise></x>
+            <y><noise type="gaussian"><mean>0.0</mean><stddev>0.01</stddev></noise></y>
+            <z><noise type="gaussian"><mean>0.0</mean><stddev>0.01</stddev></noise></z>
+          </angular_velocity>
+          <linear_acceleration>
+            <x><noise type="gaussian"><mean>0.0</mean><stddev>0.1</stddev></noise></x>
+            <y><noise type="gaussian"><mean>0.0</mean><stddev>0.1</stddev></noise></y>
+            <z><noise type="gaussian"><mean>0.0</mean><stddev>0.1</stddev></noise></z>
+          </linear_acceleration>
+        </imu>
+        <plugin name="gazebo_ros_imu" filename="libgazebo_ros_imu_sensor.so">
+          <ros>
+            <namespace>/uav</namespace>
+            <remapping>~/out:=/imu/data</remapping>
+          </ros>
+          <frame_name>imu_link</frame_name>
+        </plugin>
+      </sensor>
+    </link>
+    <joint name="imu_joint" type="fixed">
+      <child>imu_link</child>
+      <parent>base_link</parent>
+    </joint>
+"""
+
+new_content = content.replace("  </model>", injection + "\  </model>")
+
+with open(sdf_path, "w") as f:
+    f.write(new_content)
+
+print("Sensors injected successfully!")
