@@ -38,8 +38,11 @@ class ReactivePlanner(Node):
         self.goal_pos = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z])
         
     def obs_cb(self, msg):
-        pts = pc2.read_points(msg, field_names=("x", "y", "z"), skip_nans=True)
-        self.obstacles = np.array(list(pts))
+        pts = list(pc2.read_points(msg, field_names=("x", "y", "z"), skip_nans=True))
+        if len(pts) > 0:
+            self.obstacles = np.array([[p[0], p[1], p[2]] for p in pts], dtype=np.float64)
+        else:
+            self.obstacles = np.array([])
         
     def plan_loop(self):
         if self.current_pos is None or self.goal_pos is None:
