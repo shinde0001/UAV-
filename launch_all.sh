@@ -9,6 +9,10 @@ echo "Cleaning up old processes..."
 pkill -9 -f gzserver
 pkill -9 -f px4
 pkill -9 -f mavros_node
+pkill -9 -f uav_localization_node
+pkill -9 -f local_obstacle_filter
+pkill -9 -f planner_node
+pkill -9 -f mission_node
 rm -rf /home/parth/gr/src/PX4-Autopilot/build/px4_sitl_default/rootfs/eeprom
 sleep 2
 

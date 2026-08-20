@@ -62,45 +62,5 @@
       <parent>iris::base_link</parent>
     </joint>
 
-    <!-- Attach IMU -->
-    <link name="imu_link">
-      <pose>0 0 0 0 0 0</pose>
-      <inertial>
-        <mass>0.01</mass>
-        <inertia>
-          <ixx>0.00001</ixx><ixy>0</ixy><ixz>0</ixz>
-          <iyy>0.00001</iyy><iyz>0</iyz>
-          <izz>0.00001</izz>
-        </inertia>
-      </inertial>
-      <sensor name="imu_sensor" type="imu">
-        <always_on>true</always_on>
-        <update_rate>200</update_rate>
-        <imu>
-          <angular_velocity>
-            <x><noise type="gaussian"><mean>0.0</mean><stddev>0.01</stddev></noise></x>
-            <y><noise type="gaussian"><mean>0.0</mean><stddev>0.01</stddev></noise></y>
-            <z><noise type="gaussian"><mean>0.0</mean><stddev>0.01</stddev></noise></z>
-          </angular_velocity>
-          <linear_acceleration>
-            <x><noise type="gaussian"><mean>0.0</mean><stddev>0.1</stddev></noise></x>
-            <y><noise type="gaussian"><mean>0.0</mean><stddev>0.1</stddev></noise></y>
-            <z><noise type="gaussian"><mean>0.0</mean><stddev>0.1</stddev></noise></z>
-          </linear_acceleration>
-        </imu>
-        <plugin name="gazebo_ros_imu" filename="libgazebo_ros_imu_sensor.so">
-          <ros>
-            <namespace>/uav</namespace>
-            <node_name>gazebo_ros_imu_node</node_name>
-            <remapping>~/out:=/imu/data</remapping>
-          </ros>
-          <frame_name>imu_link</frame_name>
-        </plugin>
-      </sensor>
-    </link>
-    <joint name="imu_joint" type="fixed">
-      <child>imu_link</child>
-      <parent>iris::base_link</parent>
-    </joint>
   </model>
 </sdf>
