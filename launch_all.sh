@@ -30,7 +30,7 @@ sleep 5
 echo "Starting PX4 SITL (Daemon mode)..."
 cd /home/parth/gr/src/PX4-Autopilot
 export PX4_SYS_AUTOSTART=10016 
-export PX4_SIM_MODEL=gazebo-classic_iris 
+export PX4_SIM_MODEL=iris 
 ./build/px4_sitl_default/bin/px4 -d ./build/px4_sitl_default/etc &
 PX4_PID=$!
 
