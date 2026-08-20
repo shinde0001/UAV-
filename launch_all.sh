@@ -20,7 +20,7 @@ GZCLIENT_PID=$!
 sleep 5
 
 echo "Spawning Iris UAV with LiDAR and IMU..."
-gz model --spawn-file=/home/parth/gr/src/PX4-Autopilot/Tools/simulation/gazebo-classic/sitl_gazebo-classic/models/iris/iris.sdf --model-name=iris -x 0 -y 0 -z 1.0
+gz model --spawn-file=/home/parth/gr/src/uav_description/models/iris_lidar_imu/model.sdf --model-name=iris -x 0 -y 0 -z 1.0
 sleep 5
 
 echo "Starting PX4 SITL (Daemon mode)..."

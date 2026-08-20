@@ -7,7 +7,7 @@
 
     <!-- Attach 3D LiDAR (16 beams) -->
     <link name="lidar_link">
-      <pose>0 0 0.1 0 0.2618 0</pose> <!-- Pitch 15 degrees down -->
+      <pose>0 0 0.1 0 0 0</pose> <!-- Level orientation -->
       <inertial>
         <mass>0.1</mass>
         <inertia>

@@ -28,10 +28,10 @@ private:
         vg.setLeafSize(0.5f, 0.5f, 0.5f);
         vg.filter(*cloud_downsampled);
         
-        // 2. CropBox Filter (Keep only 50x50x20m around UAV)
+        // 2. CropBox Filter (Keep only 50x50x20m around UAV, excluding ground below z = -1.5m)
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>());
         pcl::CropBox<pcl::PointXYZ> cb;
-        cb.setMin(Eigen::Vector4f(-25.0, -25.0, -10.0, 1.0));
+        cb.setMin(Eigen::Vector4f(-25.0, -25.0, -1.5, 1.0)); // Filter out ground
         cb.setMax(Eigen::Vector4f(25.0, 25.0, 10.0, 1.0));
         cb.setInputCloud(cloud_downsampled);
         cb.filter(*cloud_filtered);
