@@ -49,6 +49,7 @@
         <plugin name="gazebo_ros_lidar" filename="libgazebo_ros_ray_sensor.so">
           <ros>
             <namespace>/uav</namespace>
+            <node_name>gazebo_ros_lidar_node</node_name>
             <remapping>~/out:=/velodyne_points</remapping>
           </ros>
           <output_type>sensor_msgs/PointCloud2</output_type>
@@ -90,6 +91,7 @@
         <plugin name="gazebo_ros_imu" filename="libgazebo_ros_imu_sensor.so">
           <ros>
             <namespace>/uav</namespace>
+            <node_name>gazebo_ros_imu_node</node_name>
             <remapping>~/out:=/imu/data</remapping>
           </ros>
           <frame_name>imu_link</frame_name>
