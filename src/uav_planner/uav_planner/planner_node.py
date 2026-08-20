@@ -60,7 +60,7 @@ class ReactivePlanner(Node):
         
         dodge_vector = np.zeros(3)
         if len(self.obstacles) > 0:
-            rel_obs = self.obstacles - self.current_pos
+            rel_obs = self.obstacles # PointCloud is already in sensor frame (relative to drone)
             dists = np.linalg.norm(rel_obs, axis=1)
             
             # Find obstacles within 15m
